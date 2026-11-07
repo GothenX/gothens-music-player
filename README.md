@@ -53,11 +53,10 @@
 
 1. 安装 **Fabric Loader 0.19.5+**（对应 Minecraft 26.2）。
 2. 把 **Fabric API 0.161.0+26.2** 放进 `mods` 文件夹。
-3. 把 **`gmpaudio-Beta0.2.0.jar`**（音频库，依赖）和 **`gmp-Beta0.2.0.jar`**（播放器）
-   一起放进 `mods` 文件夹（**两个都必须装**，旧版 gmp/gmpaudio 请先删掉）。
+3. 把 **`gmpaudio.jar`**（音频库，依赖）和 **`gmp.jar`**（播放器）
+   一起放进 `mods` 文件夹。
 4. 启动游戏。
 
-> 所有解码依赖（jflac、JLayer、mp3spi、vorbisspi、jorbis、tritonus-share）都已打包，不需要额外安装任何库。
 
 ---
 
@@ -84,7 +83,6 @@
 ## 快捷键
 
 默认键如下，全部可在「选项 → 控制 → 按键绑定」里修改，
-并且**单独归在「音乐播放器 / Music Player」分类**下，不再混进「游戏内容」。
 
 | 功能 | 默认键 |
 |---|---|
@@ -121,7 +119,7 @@
 - **收藏**：点行尾心形即可加入 / 取消「喜欢」。
 - **退出存档**：离开世界或断开连接时自动停止播放；在 **Esc 菜单 / 设置界面** 中音乐继续。
 - **切歌**：点列表任意一行立即播放该曲。
-- **原版背景音乐**：播放器有曲目在播时，会自动停掉游戏自带音乐（C418 等）；
+- **原版背景音乐**：播放器有曲目在播时，会自动停掉游戏自带音乐；
   方块破坏、走路、怪物等音效照常播放，也不改动你的「音乐」音量设置。
 
 ---
@@ -132,7 +130,7 @@
 |---|---|
 | `config/gmp-favorites.txt` | 「喜欢」列表，每行一个音乐文件绝对路径 |
 
-音量、播放模式等为本次运行状态，暂未持久化（后续计划中）。
+音量、播放模式等为本次运行状态，暂未持久化（后续计划）。
 
 ---
 
@@ -172,36 +170,11 @@
                               └─ 复用游戏 OpenAL：整段静态缓冲播放
 ```
 
-### 关键实现点
-
-- **播放能力由独立库模组 `gmpaudio` 提供**：播放器只负责解码，输出统一走库接口；
-  库里复用游戏 OpenAL 的 source/buffer，用整段静态缓冲播放（该设备不支持流式队列）。
-- **播放输出不走 `javax.sound.sampled.SourceDataLine`**：Android / FCL 的精简 JDK 把
-  `AudioSystem.getSourceDataLine(AudioFormat)` 直接裁掉了，调用会抛 `NoSuchMethodError`。
-- **复用游戏自己的 OpenAL 设备与上下文**：通过反射从
-  `Minecraft → SoundManager → SoundEngine → Library` 取出 `currentDevice` / `context`，
-  只创建自己的 1 个 source + 4 个 buffer；**绝不 `alcOpenDevice / alcCreateContext /
-  alcMakeContextCurrent` 切走上下文**（否则游戏音效会全部报 `Invalid name parameter`），
-  也绝不销毁游戏共用的设备/上下文。
-- **流式播放**：4 个缓冲循环队列；每写入一块 PCM 就无条件 `alSourcePlay`
-  （已在播放时是空操作）；切歌 / 拖动 / 停止时**重建 source 与 buffer**。
-  **完全不依赖 `AL_BUFFERS_QUEUED / AL_BUFFERS_PROCESSED` 等查询**——它们在该
-  OpenSL 后端上不可靠，曾分别导致“永不播放”和“切歌后永久无声”。
-- **24bit FLAC**：绕开 jflac 自带的 SPI 转换器（只支持 16bit，24bit 时
-  `isConversionSupported` 返回 false），改为直接 `readStreamInfo()` +
-  `readNextFrame()` + `decodeFrame()` 拉取 PCM；jflac 输出的 `frameSize` 为 `-1`，
-  转换时按 `声道数 × (位深/8)` 自行计算帧长；输出为**小端**（用过零次数验证：440Hz 正弦约 879 次/秒）。
-- **进度跳转**：重新打开解码流并丢弃到目标帧（长 FLAC 约 0.2~1 秒延迟，不卡画面）。
-- **界面/输入**：使用 26.2 的新渲染上下文 `GuiGraphicsExtractor` 与 Record 型输入事件
-  （`KeyEvent`、`MouseButtonEvent`）；26.2 框架已自动调用过一次 `extractBackground`（含模糊），
-  子类不能再调，否则 `Can only blur once per frame`。
-- **时长探测**：行内时长由后台单线程 `GMP-Meta` 探测并缓存，避免打开界面时同步解码造成卡顿。
-
 ---
 
 ## 版本更新记录
 
-更新日志已独立到同目录的 **`CHANGELOG.txt`**，每次改版都在该文件末尾追加新版本。
+详见 **`CHANGELOG.txt`**
 
 ---
 
@@ -228,7 +201,8 @@
 5. AI 推荐音乐
 6. 歌词（for another mod）
 7. Introduction Page
-8. 更多功能请尽情期待，可通过Github向我推荐。
+8. 播放模式、播放进度内容保存。
+9. 更多功能请尽情期待，可通过Github向我推荐。
 
 ---
 
