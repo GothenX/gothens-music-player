@@ -227,6 +227,7 @@ public class AudioPlayer {
             }
         } finally {
             AudioApi.stop();
+            active = false;
         }
 
         if (result == Result.NATURAL_END) {
