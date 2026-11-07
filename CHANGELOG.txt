@@ -1,0 +1,181 @@
+Gothen's Music Player —— 更新日志 / CHANGELOG
+Minecraft 26.2 (Fabric) 游戏内本地音乐播放器
+作者：Gothen
+说明：版本号每修复一次 +0.1，新记录追加在文件末尾。
+
+================================================================
+
+> 版本规则：每修复一次问题版本号递增 0.1。
+> （初发布的版本约为Beta0.1.6）
+
+### v0.1.1 — 初版
+
+- 首个可运行版本：按 `M` 打开界面、左侧 HUD 控制器、扫描 `music` 目录、
+  24bit FLAC 解码、播放 / 暂停 / 上下曲 / 模式 / 音量。
+- **问题**：进入界面直接崩溃
+  `java.lang.IllegalStateException: Can only blur once per frame`
+  （`GuiRenderState.blurBeforeThisStratum ← GuiGraphicsExtractor.blurBeforeThisStratum
+  ← Screen.extractBlurredBackground ← Screen.extractBackground ← MusicScreen.extractRenderState`）。
+- **原因**：26.2 在 `extractRenderStateWithTooltipAndSubtitles` 里已自动调用过一次
+  `extractBackground`（含模糊），子类又调了一次。
+- **修复**：删掉子类里的调用，改为普通半透明遮罩 `gg.fill(...)`。
+
+### beta0.1.2 — 启用版本号规则
+
+- 此时播放输出仍使用 `javax.sound.sampled.SourceDataLine`。
+- **问题**：真机（Android + FCL）完全无法播放，日志刷屏：
+  `java.lang.NoSuchMethodError: 'javax.sound.sampled.SourceDataLine
+  javax.sound.sampled.AudioSystem.getSourceDataLine(javax.sound.sampled.AudioFormat)'`
+  （`AudioPlayer.playOne:126`）。
+- **原因**：FCL 使用的精简 JDK **移除了 Java Sound 的输出实现**（方法本身不存在），
+  但**解码链路是正常的**（异常发生在解码之后）。
+
+### beta0.1.3 — 尝试自建 OpenAL 上下文（失败）
+
+- 把输出层换成 LWJGL OpenAL：自建 `ALC10.alcOpenDevice / alcCreateContext /
+  alcMakeContextCurrent`，4 缓冲流式队列。
+- **问题**：用户听到的是**原版游戏里走路等音效**，播放器自己没声；日志出现
+  `[Sound engine/ERROR]: Stop: Invalid name parameter.`
+  `[Sound engine/ERROR]: Allocate new source: Invalid name parameter.`
+- **原因**：该环境下 OpenAL 上下文是**全局**的，自建并切换上下文后，游戏声音引擎的
+  source/buffer 名字全部失效，游戏音效异常，自己的 source 也在错误的上下文里。
+
+### beta0.1.4（回退版，内部版本号仍为 beta0.1.2）
+
+- **回退到 0.1.2 的实现路线，只修改「声音输出」**这一处。
+- **改法**：不再创建任何设备/上下文，反射取游戏的 `Library.currentDevice` / `context`，
+  绑定到游戏上下文后只创建自己的 source/buffer；结束只删自己的对象，
+  **绝不销毁或切换游戏共用的上下文**。
+- **结果**：音乐播放恢复正常，游戏原版音效也正常。
+
+### beta0.1.5 — 界面与体验更新
+
+- **新增 / 改动**
+  - 界面按手稿重做：左上角播放器名称 + 左侧 `播放列表 / 喜欢 / 本地` 分类 + 右侧二级列表；
+  - 列表下方新增**可拖动的进度条**（松手才跳转），行内显示时长（后台探测）；
+  - 新增「喜欢」收藏（持久化到 `config/gmp-favorites.txt`）；
+  - 快捷键注册到**独立分类「音乐播放器 / Music Player」**；
+  - 新增断连事件：**退出存档自动停止播放**，Esc 菜单 / 设置界面仍继续；
+  - 界面实例缓存复用，避免每次打开重建控件；
+  - 播放加入约 180ms 预缓冲，试图减少开头断顿。
+- **问题**：完全没声音，且**日志没有任何报错**，只有一条
+  `[GMP] OpenAL 输出已就绪（复用游戏上下文）`。
+- **原因**：预缓冲按“时间”等待 180ms，但 OpenAL 只有 4 个缓冲槽；
+  MP3 一次只解 1152 帧（约 26ms），4 个槽填满也到不了 180ms，
+  写线程在第 5 次写入时**永久等待空闲缓冲**（而缓冲只有播放后才释放）——互相死等。
+
+### beta0.1.6 — 修复播放卡死
+
+- 预缓冲改为**按缓冲个数**：排入 2 个缓冲即起播，绝不会超过 4 个槽；
+- 加兜底：4 个缓冲全部排满仍未播放时，强制 `alSourcePlay`；
+- 从此机制上不可能再出现“写线程死等空闲缓冲”。
+- **结果**：MP3 / FLAC 均能正常出声，界面、拖动、收藏、独立按键分类等功能保留。
+
+### Beta0.1.7 — 修复“依旧无声”（起播条件不可靠）
+
+- **问题**：Beta0.1.6 仍然完全没声音，日志里依旧只有一条
+  `[GMP] OpenAL 输出已就绪（复用游戏上下文）`，没有任何异常。
+- **原因**：上一版用 `AL_BUFFERS_QUEUED`（已入队缓冲数）判断“是否该起播”。
+  在这个 OpenSL 后端上该查询返回 0，于是**永远不调用 `alSourcePlay`**；
+  4 个缓冲被写满后再写入就死等空闲缓冲——再次表现为“无声且无报错”。
+- **修复**：
+  - 不再用任何 OpenAL 查询结果决定起播；
+  - 每写入一块 PCM，只要 `AL_SOURCE_STATE != AL_PLAYING` 就调用 `alSourcePlay`
+    （即回到早期验证可行的“写入即播放”方式）；
+  - 保留每块 4096 帧（约 93ms），兼顾流畅度与低欠载。
+- **结果**：播放链路不再依赖不可靠的查询接口，MP3 / FLAC 均能正常出声。
+
+### Beta0.1.8 — 修复“按 N 切歌后彻底没声”
+
+- **问题**：播放中按 `N`（下一首）之后，播放器彻底不出声，界面/HUD 也像“坏了”；日志依旧没有任何报错。
+- **原因**：切歌 / 停止时用 `AL_BUFFERS_QUEUED`（已入队缓冲数）判断要 unqueue 几个缓冲，
+  该查询在这个 OpenSL 后端上不可靠、返回 0，于是旧缓冲**根本没被卸下**；
+  新歌再往同一批 buffer 里入队会全部失败（`AL_INVALID_OPERATION`），从此永久无声。
+- **修复**：
+  - 切歌 / 拖动进度 / 停止时**直接销毁并重建 source 与 buffer**，不依赖任何 unqueue 查询；
+  - 入队、循环取缓冲、起播全部不再读 OpenAL 状态查询，改为无条件 `alSourcePlay`
+    （已在播放时是空操作）；
+  - 暂停/恢复改用内部标记，避免查询不可靠导致恢复不了；
+  - 某个缓冲 2 秒都没被释放（后端卡死）时抛出异常，自动切到下一首重建输出；
+  - 音频线程整体加异常兜底，不会再静默死掉。
+- **同版本新增**：播放时有曲目在播就自动停掉**游戏原版背景音乐**（C418 等）。
+  只作用于 `MusicManager` 这一条通道，每 tick 检测到原版音乐在放就 `stopPlaying()`；
+  **方块破坏、走路、怪物、UI 等音效完全不受影响**，也**不修改**用户的「音乐」音量设置
+  （不会写进 `options.txt`，避免把设置搞坏）。
+- **同版本新增（曲库只加载 27 首）**：
+  - **问题**：`music` 里放了 100 多首，游戏内只列出 27 首。
+  - **原因**：只扫描了“当前游戏运行目录”下的 `music`。开启版本隔离（FCL/HMCL/PCL）时，
+    游戏目录是 `.minecraft/versions/<版本>/`，而玩家常把歌放在 `.minecraft/music/`，
+    两边不是同一个文件夹。
+  - **修复**：改为**多目录合并扫描并去重**：`{游戏目录}/music`、
+    `{.minecraft}/music`（游戏目录位于 `versions/<版本>` 时）、`{游戏目录上一级}/music`；
+    界面左侧新增「共 N 首」与「实际扫描到的目录」提示，扫描结果同时打印到日志。
+  - 另外：滚轮在**整个面板**内都能滚动列表，每格滚动多行，100+ 首也能翻到底。
+- **同版本新增（一放就“重置”、每首只响 2 秒）**：
+  - **问题**：点歌后进度立刻回到 0，日志里每首歌 2 秒就一条
+    `播放失败: … -> 音频输出长时间无响应，已重建输出`，一直跳歌。
+  - **原因**：上一版加的“2 秒没释放缓冲就判卡死”的保护，依据的是
+    `AL_BUFFERS_QUEUED / AL_BUFFERS_PROCESSED` 查询；该 OpenSL 后端这两个查询
+    一律返回 0，于是把**正常播放**误判成卡死，秒退换曲。另外 source 只设了
+    `AL_SOURCE_RELATIVE`，没关距离衰减，监听者在玩家位置时增益会被衰减到几乎听不见。
+  - **修复**：
+    1. 播放开始时设置 `AL_ROLLOFF_FACTOR = 0`、位置 `(0,0,0)`，彻底关闭距离衰减；
+    2. 第一次入队后探测 `AL_BUFFERS_QUEUED`，若不可用则**自动改用“按每块预计播完时间轮换”**，
+       完全不依赖查询接口，也不会再空等/误判；
+    3. 去掉“2 秒判死”的强制换曲逻辑；
+    4. 每 5 秒在日志打印一条 `[GMP] 播放中 曲名 pos=xs mineQueued=… state=… processed=… err=…`，
+       以后排查直接看这行。
+- **同版本新增（仍然无声：改为整段静态缓冲）**：
+  - **实测证据**：日志 `state=4114`（`AL_PLAYING`）说明 source 确实处于播放状态，
+    但 33 秒里 `pos` 只从 0.34s 走到 0.47s，`processed` 始终为 0 ——
+    **该设备的 OpenSL 后端根本不消费流式队列**（入队的缓冲一块都不播）。
+    游戏自带的方块/脚步音效是“一次性静态缓冲”，所以它们正常。
+  - **修复**：放弃流式队列，改为**整段解码进内存 + 单个静态缓冲**播放，
+    与游戏自带音效走同一条路径：
+    - 播放前把整首 PCM 解完（日志会打印 `解码完成 XXMB，耗时 YYms`）；
+    - `alBufferData` 一次上传整段，`alSourcei(AL_BUFFER)` 挂上后 `alSourcePlay`；
+    - 进度改由播放时钟推算（不再依赖任何 AL 查询）；
+    - 拖动进度 = 从目标帧重新解码并重建静态缓冲；
+    - 内存上限 128MB（约 8 分钟 44.1kHz 立体声），超长曲目会提示不播。
+  - **代价**：点歌后要等解码完成才出声（3 分钟曲目通常几百毫秒到 2 秒）。
+- **结果**：按 N / 上一首 / 拖动进度反复切换都不会再把输出弄坏；放自己的歌时不会和原版音乐叠着响；
+  100 多首也能全部列出；不再出现“一放就重置”。
+
+================================================================
+
+### Beta0.2.0 — 独立音频库模组 + 原版音乐彻底静音 + 秒级拖动
+
+**1. 新增依赖模组：Gothen's Audio API（`gmpaudio`）**
+
+- 播放能力从播放器里整体拆出，成为独立 jar：`gmpaudio-Beta0.2.0.jar`；
+- 提供接口（`com.gothen.gmpaudio.AudioApi`）：
+  `play(pcm, len, rate, channels, volume)`、`pause()`、`resume()`、`stop()`、
+  `setVolume()`、`isPlaying()`、`durationMs()`、`shutdown()`；
+- 内部只做一件事：复用游戏已初始化的 OpenAL 设备与上下文，创建自己的
+  source/buffer，用**整段静态缓冲**播放（该设备不支持流式队列）；
+- 关闭距离衰减（`AL_ROLLOFF_FACTOR=0`、位置 `(0,0,0)`、`AL_SOURCE_RELATIVE`），
+  避免监听者位置把音量衰减掉；
+- 播放器 `gmp` 在 `fabric.mod.json` 里声明 `depends.gmpaudio`，**两个 jar 必须同时安装**。
+
+**2. 原版音乐与原版并行的问题（修复）**
+
+- 之前只调 `MusicManager.stopPlaying()`，在部分场景原版音乐仍会响；
+- 现在每 tick 直接把 `SoundEngine.gainBySource` 里 **MUSIC 的运行时增益写 0**，
+  并停掉当前正在播的那一首；
+- **不修改 options**，所以不会把你的「音乐」音量设置改成 0；
+- 方块破坏、走路、怪物、UI 等其它音效完全不受影响；
+- 播放器停止后调用 `refreshCategoryVolume(MUSIC)` 恢复原音量。
+
+**3. 拖动进度响应慢（约 3 秒）**
+
+- 原因：每次 seek 都重新打开解码流并从文件头丢弃到目标帧，FLAC/MP3 都要重新解码；
+- 现在整首 PCM 在首次播放时解码一次并**缓存**，拖动时只做内存切片、
+  重新上传静态缓冲，**毫秒级生效**；
+- 首次播放仍需完整解码（3 分钟曲目约几百毫秒到 2 秒，日志有
+  `[GMP] 解码完成 XXMB，耗时 YYms`）。
+
+**其它**
+
+- 移除播放器内旧的 `OpenAlSink`，音频输出统一走库模组；
+- 进度由播放时钟推算（该后端查询不可靠）；
+- 单曲 PCM 上限 128MB（约 8 分钟 44.1kHz 立体声），超长曲目会提示不播。
