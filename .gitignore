@@ -1,0 +1,15 @@
+# Gradle / 构建产物
+.gradle/
+build/
+*/build/
+out/
+# 本地依赖 jar（由 gmp-audio-api 构建得到，不入库）
+libs/
+# IDE
+.idea/
+*.iml
+.vscode/
+# 运行时目录
+run/
+music/
+config/

@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "gmpaudio",
+  "version": "${version}",
+  "name": "Gothen's Audio API",
+  "description": "Gothen's Music Player 的音频输出依赖库：复用游戏 OpenAL 静态缓冲播放 16bit PCM。",
+  "authors": ["Gothen"],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["com.gothen.gmpaudio.GmpAudioMod"]
+  },
+  "depends": {
+    "fabricloader": ">=0.19.0",
+    "minecraft": "26.2",
+    "java": ">=25"
+  }
+}
