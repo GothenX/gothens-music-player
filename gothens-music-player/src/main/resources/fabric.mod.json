@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "gmp",
+  "version": "${version}",
+  "name": "Gothen's Music Player",
+  "description": "游戏内本地音乐播放器，支持 FLAC(含24bit)/MP3/WAV/OGG，按 M 打开播放界面，左侧常驻简易控制器。",
+  "authors": [
+    "Gothen",
+    "Quen"
+  ],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "com.gothen.gmp.GmpClient"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.19.0",
+    "gmpaudio": ">=Beta0.2.0",
+    "fabric-api": "*",
+    "minecraft": "26.2"
+  }
+}

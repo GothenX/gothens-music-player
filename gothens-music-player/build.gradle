@@ -1,0 +1,58 @@
+plugins {
+    id 'net.fabricmc.fabric-loom' version '1.17.0-alpha.8'
+    id 'maven-publish'
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+    archivesName = project.archives_base_name
+}
+
+repositories {
+    mavenCentral()
+    maven { url = 'https://maven.fabricmc.net/' }
+}
+
+dependencies {
+    // 本地播放库模组（Gothen's Audio API）——需与主模组一起安装
+    implementation files("libs/gmpaudio-Beta0.2.0.jar")
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+
+    // --- 音频解码库 ---
+    // FLAC 解码（纯 Java，支持 16/24 bit）
+    include implementation('org.jflac:jflac-codec:1.5.2')
+    // MP3 解码
+    include implementation('com.googlecode.soundlibs:mp3spi:1.9.5.4')
+    include implementation('com.googlecode.soundlibs:jlayer:1.0.1.4')
+    // OGG Vorbis 解码（vorbisspi 依赖 jorbis）
+    include implementation('com.googlecode.soundlibs:vorbisspi:1.0.3.3')
+    include implementation('com.googlecode.soundlibs:jorbis:0.0.17.4')
+    include implementation('com.googlecode.soundlibs:tritonus-share:0.3.7-2')
+}
+
+processResources {
+    inputs.property "version", project.version
+    filesMatching("fabric.mod.json") {
+        expand "version": inputs.properties.version
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.release = 25
+}
+
+java {
+    withSourcesJar()
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
+}
+
+jar {
+    from("LICENSE") {
+        rename { "${it}_${project.base.archivesName.get()}" }
+    }
+}
