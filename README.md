@@ -4,12 +4,12 @@
 
 液态玻璃界面、多音乐平台、3D 歌词、本地高品质音乐播放、更方便的一起听、自动电影镜头……更多功能，敬请期待。
 
+A Minecraft music player remade by Gothen, based on Dango music. Liquid-glass interface, multiple music platforms, 3D lyrics, high-quality local playback, easier Listen Together, automatic cinematic camera and more. Stay tuned.
 
-- 当前版本：`0.2.4-beta`
+- 当前版本：`0.2.5-beta`
 - 作者：Gothen
-- 主页 / 问题反馈(仅周末及法定节假日)：Github<https://github.com/GothenX/gothens-music-player>
-- 邮箱<john_gothen@foxmail.com>
-- 许可证：GPL-3.0
+- 主页 / 问题反馈：<https://github.com/GothenX/gothens-music-player>
+- 许可证：GPL-3.0（保留 DangoMusic 原作者版权声明）
 
 ---
 
@@ -28,10 +28,11 @@ GMP 是一个**客户端**模组：按 `M` 在游戏里打开一个液态玻璃�
 
 ## 安装
 
-1. 装好 **Fabric Loader** 与 **Fabric API**
-2. 把 `gmp.jar` 放进 `mods/`。
-3. 完成。**(Ambient Camera 1.1.0 已经内嵌在 jar 里)**
+1. 装好 **Fabric Loader** 与 **Fabric API**（Minecraft 26.2）。
+2. 把 `gmp-0.2.4-beta+26.2-fabric.jar` 放进 `mods/`。
+3. 完成。电影镜头所需的 **Ambient Camera 1.1.0 已经内嵌在 jar 里**（`fabric.mod.json` 用 `jars` 声明，MIT 许可），不需要另外下载。
 
+> 专用服务器也可以装这个 jar（`environment: *`），用来提供「服务器音乐」曲库。
 
 ---
 
@@ -39,13 +40,13 @@ GMP 是一个**客户端**模组：按 `M` 在游戏里打开一个液态玻璃�
 
 | 音源 | 说明 |
 |---|---|
-| 网易云 | 默认音源，搜索 / 歌单 / 封面歌词。需要登录。 |
+| 网易云 | 默认音源，搜索 / 歌单 / 封面歌词。需要登录态时把 cookie 放到 `config/gmp/netease_cookie.txt` |
 | QQ音乐 | 平台音源，与网易云并列可切换 |
 | 酷狗 | 平台音源 |
 | 本地 | 扫描 `config/gmp/local` 与游戏目录下的 `music/`，支持 mp3 / flac / ogg |
-| 服务器音乐 | 进入服务器时出现；曲库由服务端扫描 `/对应服务器版本目录/music` 提供 |
+| 服务器音乐 | 只在真的进入别人的服务器时出现；曲库由服务端扫描 `/home/container/music` 提供 |
 
-侧栏可以随时切音源；
+侧栏可以随时切音源；本地 / 服务器曲库不显示登录，因为没有账号概念。
 
 ---
 
@@ -124,13 +125,13 @@ A：已修复（分段解码按片段时长推进），若仍出现请附上 `[G
 **Q：服务器音乐看不到？**
 A：它只在真的进入别人的服务器（世界已加载 + 有网络 + 不是本地存档/局域网）时出现；同时确认服务端装的是同一个 jar。
 
+**Q：界面里还有 Dango 的痕迹？**
+A：界面品牌已全部改为 GOTHEN MUSIC；模组 id 为 `gmp`，代码在 `com.gothen.gmp` 下，仅许可证与版权声明保留原作者。
 
 ---
 
 ## 更新日志
 
-- `CHANGELOG.txt` —— 完整更新记录
+- `CHANGELOG.txt` —— 完整更新记录（每次修复一条）
 - `GMP-功能更新一览.txt` —— 自融合 Dango music 以来的功能汇总
 - `GMP-Bug修复记录.txt` —— 每个问题、原因与修法
-
-(注：本项目由本人及AI辅助完成)
